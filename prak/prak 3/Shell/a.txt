@@ -1,0 +1,8 @@
+     1	     1	     1	total 312
+     2	     2	     2	-rwxr-xr-x   1 yurygornostaev  staff  33520 13 дек 13:38 1
+     3	     3	     3	-rw-rw-r--   1 yurygornostaev  staff    564 13 дек 15:05 1.c
+     4	     4	     4	drwxr-xr-x  11 yurygornostaev  staff    352 12 дек 21:55 Shell_A
+     5	     5	     5	-rw-r--r--@  1 yurygornostaev  staff  63179 12 дек 21:50 Zadanie-shell-2023.pdf
+     6	     6	     6	-rwxr-xr-x   1 yurygornostaev  staff      0 13 дек 16:42 a
+     7	     7	     7	-rwxr-xr-x   1 yurygornostaev  staff  34936 13 дек 13:08 shellToShow
+     8	     8	     8	-rw-------@  1 yurygornostaev  staff  13629 13 дек 13:29 shellToShow.c

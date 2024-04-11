@@ -1,0 +1,8 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/yurygornostaev/VisualcodeProjects /prak/dz2/1'
+relocations:
+  - { offsetInCU: 0x26, offset: 0x26, size: 0x8, addend: 0x0, symName: _sum_make, symObjAddr: 0x0, symBinAddr: 0x10000385C, symSize: 0x384 }
+  - { offsetInCU: 0x41, offset: 0x41, size: 0x8, addend: 0x0, symName: _sum_make, symObjAddr: 0x0, symBinAddr: 0x10000385C, symSize: 0x384 }
+  - { offsetInCU: 0x181, offset: 0x181, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x384, symBinAddr: 0x100003BE0, symSize: 0x334 }
+...

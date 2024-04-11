@@ -1,0 +1,434 @@
+Получено: ls -l|cat -n 1.c
+Выполнение ls -l|cat -n 1.c
+     1	#include <stdio.h>
+     2	#include <stdlib.h>
+     3	#include <string.h>
+     4	#include <unistd.h>
+     5	#include <sys/wait.h>
+     6	#include <sys/types.h>
+     7	#include <sys/file.h>
+     8	
+     9	// ps; ls; (cd Shell_A; ls; ps) && ls && ps
+    10	// date; (ls -l|cat -n 1.c)>f.txt & pwd
+    11	// (cd ..;ls && ps); ls shell_A || ps
+    12	// <f.txt cat -n | cat -n | cat -n >b.txt
+    13	// sleep 40 & sleep 10;ps
+    14	// <f.txt ./proga >b.txt
+    15	
+    16	char current_path[1000];
+    17	
+    18	void predobr(char *s);
+    19	
+    20	char **make_vector(char *s, int n) { 
+    21		char *c = s;
+    22	
+    23		int bracketsCounter = 0;
+    24		for (int i = 0; i < n;) {
+    25			if (*c == '(')
+    26				bracketsCounter += 1;
+    27			if (*c == ')')
+    28				bracketsCounter -= 1;
+    29			if (*c == '|' && bracketsCounter == 0)
+    30				i += 1;
+    31			c += 1;
+    32		}
+    33		if (*c == '|') c += 1;
+    34	
+    35		char *d = c;
+    36		// sort -r t.txt - 3 слова
+    37		int argc = 0;
+    38		while (*c == ' ')
+    39			c += 1; 
+    40		while (*c != '|' && *c != '\0') { 
+    41			while (*c != '|' && *c != '\0' && *c != ' ') {
+    42				c += 1;
+    43			}
+    44			while (*c == ' ')
+    45				c += 1;
+    46			argc += 1;
+    47		}
+    48	
+    49		char **argv = (char**)malloc(sizeof(char *) * (argc + 1));
+    50		argv[argc] = NULL;
+    51	
+    52		c = d;
+    53		for (int i = 0; i < argc; i += 1) {
+    54			while (*c == ' ')
+    55				c += 1;
+    56			d = c;
+    57			while (*c != '|' && *c != '\0' && *c != ' ') {
+    58				c += 1;
+    59			}
+    60			*c = '\0';
+    61			argv[i] = strdup(d);
+    62			c += 1;
+    63		}
+    64	
+    65		return argv;
+    66	}
+    67	
+    68	int MayBeCD(char *s) {
+    69		char *c = s;
+    70		while (*c == ' ')
+    71			c += 1;
+    72		if ( *c != 'c' )
+    73			return 2;
+    74		c++;
+    75		if ( *c != 'd' )
+    76			return 2;
+    77		c++;
+    78		if ( *c != ' ' )
+    79			return 2;
+    80		while (*c == ' ')
+    81			c++;
+    82		char *d = c;
+    83		while (*c != ' ' && *c != '\0')
+    84			c++;
+    85		char helper = *c;
+    86		*c = '\0';
+    87		d = strdup(d);
+    88		*c = helper;
+    89		if ( strcmp(d,".") == 0 ) {
+    90			free(d);
+    91			return 0;
+    92		}
+    93		if ( strcmp(d,"..") == 0 ) {
+    94			free(d);
+    95			if ( strcmp(current_path,"/") == 0 )
+    96				return 1; // корневой диалог не имеет родителя
+    97			c = current_path + strlen(current_path);
+    98			while (*c != '/')
+    99				c--;
+   100			*c = '\0';
+   101			if ( strcmp(current_path,"") == 0 )
+   102				strcpy(current_path,"/");
+   103			return chdir(current_path);
+   104		}
+   105		if ( d[0] == '/' ) {
+   106			int k = chdir(d);
+   107			free(d);
+   108			return k;
+   109		} else {
+   110			strcat(current_path,"/");
+   111			strcat(current_path,d);
+   112			free(d);
+   113			return chdir(current_path);
+   114		}
+   115		return 0;
+   116	}
+   117	
+   118	void br_implement(char *s, int n) {
+   119		char *c = s; 
+   120		int br_counter = 0;
+   121		for (int i = 0; i < n;) {
+   122			if (*c == '(')
+   123				br_counter += 1;
+   124			if (*c == ')')
+   125				br_counter -= 1;
+   126			if (*c == '|' && br_counter == 0)
+   127				i += 1;
+   128			c += 1;
+   129		}
+   130		if (*c == '|') c += 1;
+   131		while (*c == ' ')
+   132			c += 1; 
+   133		if ( *c == '(' ) {
+   134			char *d = c+1;
+   135			br_counter = 1;
+   136			while ( br_counter > 0 ) {
+   137				c += 1;
+   138				if (*c == '(')
+   139					br_counter += 1;
+   140				if (*c == ')')
+   141					br_counter -= 1;
+   142			}
+   143			*c = '\0';
+   144			predobr(d);
+   145			exit(0);
+   146		}
+   147	}
+   148	
+   149	char *get_input_file(char *s) {
+   150		int i = 0;
+   151		while (s[i] != '\0' && s[i] != '<')
+   152			i += 1;
+   153		if (s[i] == '\0')
+   154			return NULL;
+   155		s[i] = ' ';
+   156		while (s[i] == ' ')
+   157			i += 1;
+   158		int j = i;
+   159		while (s[i] != ' ' && s[i] != '\0' && s[i] != '|')
+   160			i += 1;
+   161		char helper = s[i];
+   162		s[i] = '\0';
+   163		char *c = strdup(s + j);
+   164		s[i] = helper;			
+   165	
+   166		while (j < i) {
+   167			s[j] = ' ';
+   168			j += 1;
+   169		}
+   170		return c;
+   171	}
+   172	
+   173	char *get_output_file(char *s, int *append) {
+   174		int i = 0;
+   175		while (s[i] != '\0' && s[i] != '>')
+   176			i += 1;
+   177		if (s[i] == '\0')
+   178			return NULL;
+   179		s[i] = ' ';
+   180		i += 1;
+   181		if (s[i] == '>') {
+   182			s[i] = ' ';	
+   183			*append = 1;
+   184		}
+   185		while (s[i] == ' ')
+   186			i += 1;
+   187		int j = i;
+   188		while (s[i] != ' ' && s[i] != '\0' && s[i] != '|')
+   189			i += 1;
+   190	
+   191		char helper = s[i];
+   192		s[i] = '\0';
+   193		char *c = strdup(s + j);
+   194		s[i] = helper;
+   195	
+   196		while (j < i) {
+   197			s[j] = ' ';
+   198			j += 1;
+   199		}
+   200	
+   201		return c;
+   202	}
+   203	
+   204	char *input_str() {
+   205		char *ptr = (char *)malloc(100);
+   206		char c;
+   207		int i = 0;
+   208		c = getchar();
+   209		while ((c != '\n') && (c != EOF)) {
+   210			ptr[i] = c;
+   211			c = getchar();
+   212			i++;
+   213		}
+   214		ptr[i] = '\0';
+   215		return ptr;
+   216	}
+   217	
+   218	int implementation(char *s){
+   219	
+   220		char *fInput = get_input_file(s);
+   221		int append = 0;
+   222		char *fOutput = get_output_file(s, &append);
+   223	
+   224	
+   225		int n = 1;
+   226		char *c = s;
+   227		int bracketsCounter = 0;
+   228		while (*c != '\0') {
+   229			if (*c == '(')
+   230				bracketsCounter += 1;
+   231			if (*c == ')')
+   232				bracketsCounter -= 1;
+   233			if (*c == '|' && bracketsCounter == 0)
+   234				n += 1;
+   235			c += 1;
+   236		}
+   237	
+   238		if ( n == 1 ) {
+   239			int k = MayBeCD(s);
+   240			if (k == 0)
+   241				return 0;
+   242			if (k == 1)
+   243				return 1;
+   244		}
+   245		
+   246		int *sons = (int *)malloc(sizeof(int) * n);
+   247	
+   248		int fd[2], prevpipe;
+   249	
+   250		for (int i = 0; i < n; i += 1) {
+   251			if (i != n - 1)
+   252				pipe(fd);
+   253			if ((sons[i] = fork()) == 0) {
+   254				/* ВВОД */
+   255				if (i != 0) {
+   256					dup2(prevpipe, 0);
+   257				} 
+   258	
+   259				else {
+   260					if (fInput != NULL) {
+   261						int j = open(fInput, O_RDONLY);
+   262						if (j == -1) {
+   263							j = open("/dev/null", O_RDONLY);
+   264						}
+   265						dup2(j, 0);
+   266					}
+   267				}
+   268	
+   269				/* ВЫВОД */
+   270				if (i != n - 1) {
+   271					dup2(fd[1], 1);
+   272				}
+   273				else{
+   274					if (fOutput != NULL) {
+   275						int j;
+   276						if (append == 0)
+   277							j = open(fOutput, O_WRONLY | O_CREAT | O_TRUNC, 0777);
+   278						else 
+   279							j = open(fOutput, O_WRONLY | O_CREAT | O_APPEND, 0777);
+   280						dup2(j, 1);
+   281					}
+   282				}
+   283				/**/
+   284				
+   285				br_implement(s,i);
+   286				char **argv = make_vector(s, i);
+   287				execvp(argv[0], argv);
+   288				printf("zsh: command not found: cmd %s\n", argv[0]);
+   289				exit(1);
+   290			}
+   291			if (n != 1) { 
+   292				if (i == 0) {
+   293					prevpipe = fd[0];
+   294					close(fd[1]);
+   295				}
+   296				else if (i == n - 1) { 
+   297					close(prevpipe);
+   298				}
+   299				else {
+   300					close(prevpipe);
+   301					prevpipe = fd[0];
+   302					close(fd[1]);
+   303				}
+   304			}
+   305		}
+   306	
+   307		int k;
+   308		for (int i = 0; i < n; i += 1)
+   309			waitpid(sons[i], &k, 0);
+   310		free(sons);
+   311		free(fInput);
+   312		free(fOutput);
+   313		return k;
+   314	}
+   315	
+   316	void choose_implementation(char *s){
+   317		printf("Получено: %s\n", s);
+   318		char *c=s, helper;
+   319		int br_count = 0;
+   320		while(*c == ' '){
+   321			br_count++;
+   322		}
+   323		while(*c != '\0'){
+   324			while(*c != '\0'){
+   325				if(*c == '('){
+   326					br_count++;
+   327				}
+   328				if(*c == ')'){
+   329					br_count--;
+   330				}
+   331				if(br_count == 0 && *c == '&' && *(c+1) == '&'){
+   332					break;
+   333				}
+   334				if(br_count == 0 && *c == '|' && *(c+1) == '|'){
+   335					break;
+   336				}
+   337				c++;
+   338			}
+   339			helper = *c;
+   340			*c = '\0';
+   341			printf("Выполнение %s\n", s);// ps && (cd ..; ps)
+   342			int status = implementation(s);
+   343			printf("Выполнил: %s\n", s);
+   344			// обработка выполнения && и ||
+   345			*c = helper;
+   346			if (status != 0 && helper == '&')
+   347				break; // && выполняется при успешном выполнении предыдущей команды
+   348			if (status == 0 && helper == '|')
+   349				printf("ghgh\n");
+   350				break;
+   351			if (*c == '\0')
+   352				break;
+   353			c += 2;
+   354			while (*c == ' ')
+   355				c += 1;
+   356			s = c;
+   357		}
+   358		printf("Отдача: %s\n", s);
+   359		return;
+   360	}
+   361	
+   362	void predobr(char *s){
+   363		char *c = s;// com1 && (com2; com3)
+   364		while(*c == ' '){
+   365			c ++;
+   366		}
+   367		int br_count = 0;
+   368		while(*c != '\0'){
+   369			while(*c != '\0'){
+   370				if(*c == '('){
+   371					br_count++;
+   372				}
+   373				if(*c == ')'){
+   374					br_count--;
+   375				}
+   376				if(*c == ';' && br_count == 0){
+   377					break;
+   378				}
+   379				if (*c == '&' && *(c + 1) != '&' && c - s != 0 && *(c - 1) != '&' && br_count == 0)
+   380					break;
+   381				c++;
+   382			}
+   383	
+   384			char helper = *c;
+   385			*c = '\0';
+   386			if(helper == ';' || helper == '\0'){
+   387				// printf("выполнение команды");
+   388				choose_implementation(s);
+   389			}
+   390			else{// фоновый режим
+   391				// printf("фоновый режим\n");
+   392				int pid1 = fork();
+   393				if(pid1 == 0){
+   394					if(fork() == 0){
+   395						signal(SIGINT, SIG_IGN);
+   396						int f1 = open("/dev/null", O_RDONLY);
+   397						dup2(f1, 0);
+   398						close(f1);
+   399						choose_implementation(s);
+   400						exit(0);
+   401					}
+   402					exit(0); // делаем внука независимымs
+   403				}
+   404				waitpid(pid1, NULL, 0);
+   405				
+   406			}
+   407			*c = helper;
+   408			if(*c == '\0'){
+   409				break;
+   410			}
+   411			c++;
+   412			while(*c == ' '){
+   413				c++;
+   414			}
+   415			s = c;
+   416		}
+   417		return;
+   418	}
+   419	
+   420	int main(){
+   421		while(1){
+   422			getcwd(current_path, 1000);
+   423			printf("%s %%", current_path);
+   424			char *s = input_str();
+   425			if ( strcmp(s,"exit") == 0 ) {
+   426				free(s);
+   427				return 0;
+   428			}
+   429			predobr(s);
+   430		}
+   431	}Выполнил: ls -l|cat -n 1.c
+Отдача: ls -l|cat -n 1.c
